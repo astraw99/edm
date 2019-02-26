@@ -19,12 +19,17 @@ var (
 func main() {
 	startTime := time.Now().UnixNano()
 
-	for i := 1; i <= 3; i++ {
+	for i := 1; i <= 5; i++ {
 		filename := "./task/edm" + strconv.Itoa(i) + ".txt"
 		start := 60
 
 		outerWg.Add(1)
-		go RunTask(filename, start, batchLength)
+		go func() {
+			err := RunTask(filename, start, batchLength)
+			if err != nil && err != io.EOF {
+				log.Fatalln(err)
+			}
+		}()
 	}
 
 	// main 阻塞等待goroutine执行完成
@@ -36,7 +41,7 @@ func main() {
 	fmt.Println("Total cost(ms):", (endTime-startTime)/1e6)
 }
 
-// 单任务
+// RunTask 单任务
 func RunTask(filename string, start, length int) (retErr error) {
 	for {
 		isFinish := make(chan bool, 1)
@@ -66,7 +71,7 @@ func RunTask(filename string, start, length int) (retErr error) {
 	return retErr
 }
 
-// 读取指定行数据
+// ReadLines 读取指定行数据
 func ReadLines(filename string, start, length int, isFinish chan bool) (line int, retErr error) {
 	fmt.Println("current file:", filename)
 
@@ -111,7 +116,12 @@ func ReadLines(filename string, start, length int, isFinish chan bool) (line int
 
 			wg.Add(1)
 			// go并发执行
-			go SendEmail(line, &wg)
+			go func() {
+				err := SendEmail(line, &wg)
+				if err != nil {
+					log.Fatalln(err)
+				}
+			}()
 			if startLine == endLine {
 				isFinish <- true
 				break
@@ -126,7 +136,7 @@ func ReadLines(filename string, start, length int, isFinish chan bool) (line int
 	return startLine, retErr
 }
 
-// 模拟邮件发送
+// SendEmail 模拟邮件发送
 func SendEmail(email string, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
